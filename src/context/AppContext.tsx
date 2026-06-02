@@ -255,7 +255,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
     await api.updateTask(taskId, updates);
-    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)));
     addToast('Task updated.', 'success');
   };
 
@@ -345,4 +345,4 @@ export function useApp() {
   }
   return context;
 }
-}
+
