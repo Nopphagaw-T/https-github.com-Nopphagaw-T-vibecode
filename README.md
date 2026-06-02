@@ -140,7 +140,17 @@ You will receive a JWT token that can be used for subsequent authorized requests
 2. Serve the built assets with a static server or integrate them into the Express app (modify `server/index.ts` to serve `dist`).
 3. Ensure environment variables (`PORT`, `DATABASE_URL`, etc.) are set for the production environment.
 
+## Docker Setup
+
+```bash
+# Build and run containers
+docker compose up --build
+```
+
+The backend runs on port **5002** and the frontend on port **3001**. Adjust `VITE_BACKEND_URL` if you change ports.
+
 ---
+
 
 ## Troubleshooting
 

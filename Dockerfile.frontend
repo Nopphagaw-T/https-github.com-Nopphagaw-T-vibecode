@@ -1,0 +1,1 @@
+# Use official Node.js image for frontend\nFROM node:22-alpine AS base\nWORKDIR /app\n\n# Install dependencies\nCOPY package.json package-lock.json ./\nRUN npm ci\n\n# Copy source code\nCOPY . .\n\n# Expose development server port (default Vite port)\nENV PORT=3001\nEXPOSE 3001\n\n# Run Vite dev server\nCMD ["npm", "run", "dev"]
