@@ -21,8 +21,7 @@ async function main() {
     { id: 'u3', name: 'Priya Nair', email: 'priya@taskflow.app', password: hashedPassword, initials: 'PN' },
     { id: 'u4', name: 'Tom Belanger', email: 'tom@taskflow.app', password: hashedPassword, initials: 'TB' },
     { id: 'u5', name: 'Sara Okafor', email: 'sara@taskflow.app', password: hashedPassword, initials: 'SO' },
-  },
-    { id: 'u6', name: 'New User', email: 'new@taskflow.app', password: hashedPassword, initials: 'NU' }
+    { id: 'u6', name: 'New User', email: 'new@taskflow.app', password: hashedPassword, initials: 'NU' },
   ];
 
   for (const user of users) {
