@@ -1,3 +1,4 @@
+// src/context/AppContext.tsx
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,45 +6,40 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Project, Task, Comment, Status, Priority, TaskActivity } from '../types';
-import {
-  INITIAL_USERS,
-  INITIAL_CURRENT_USER_ID,
-  INITIAL_PROJECTS,
-  INITIAL_TASKS,
-  INITIAL_COMMENTS,
-  INITIAL_ACTIVITIES,
-} from '../data/mockData';
+import { api } from '../api/client';
 
+/** Toast definition */
 interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error';
 }
 
+/** Context shape */
 interface AppContextType {
   currentUser: User | null;
   users: User[];
   projects: Project[];
   tasks: Task[];
   comments: Comment[];
+  activities: TaskActivity[];
   searchQuery: string;
   toasts: Toast[];
+  isLoading: boolean;
   setSearchQuery: (query: string) => void;
-  signIn: (email: string) => boolean;
-  signUp: (name: string, email: string) => boolean;
+  signIn: (email: string, password: string) => Promise<boolean>;
+  signUp: (name: string, email: string, password: string) => Promise<boolean>;
   signOut: () => void;
-  createProject: (name: string, description: string, color: string, memberIds: string[]) => Project;
-  createTask: (task: Omit<Task, 'id' | 'commentCount' | 'createdAt' | 'updatedAt'>) => Task;
-  updateTask: (taskId: string, updates: Partial<Task>) => void;
-  deleteTask: (taskId: string) => void;
-  moveTask: (taskId: string, status: Status) => boolean;
-  addComment: (taskId: string, body: string) => boolean;
+  createProject: (name: string, description: string, color: string, memberIds: string[]) => Promise<Project>;
+  createTask: (task: Omit<Task, 'id' | 'commentCount' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
+  moveTask: (taskId: string, status: Status) => Promise<boolean>;
+  addComment: (taskId: string, body: string) => Promise<boolean>;
   addToast: (message: string, type?: 'success' | 'error') => void;
   removeToast: (id: string) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
-  activities: TaskActivity[];
-  logActivity: (taskId: string, actionType: TaskActivity['actionType'], oldValue: string | null, newValue: string | null) => void;
   focusedTaskId: string | null;
   setFocusedTaskId: (id: string | null) => void;
 }
@@ -51,94 +47,34 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Load initial state or localStorage
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('taskflow_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const savedId = localStorage.getItem('taskflow_current_user_id');
-    if (savedId) {
-      const savedUsersList = localStorage.getItem('taskflow_users');
-      const currentUsers: User[] = savedUsersList ? JSON.parse(savedUsersList) : INITIAL_USERS;
-      const found = currentUsers.find(u => u.id === savedId);
-      if (found) return found;
-    }
-    // Default to u1 as mock fallback but can be null for login screen demonstration
-    const foundDefault = INITIAL_USERS.find(u => u.id === INITIAL_CURRENT_USER_ID);
-    return foundDefault || null;
-  });
-
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem('taskflow_projects');
-    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
-  });
-
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('taskflow_tasks');
-    return saved ? JSON.parse(saved) : INITIAL_TASKS;
-  });
-
-  const [comments, setComments] = useState<Comment[]>(() => {
-    const saved = localStorage.getItem('taskflow_comments');
-    return saved ? JSON.parse(saved) : INITIAL_COMMENTS;
-  });
-
-  const [activities, setActivities] = useState<TaskActivity[]>(() => {
-    const saved = localStorage.getItem('taskflow_activities');
-    return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
-  });
-
-  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(() => {
-    return localStorage.getItem('taskflow_focused_task_id');
-  });
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
+  // UI‑only state stored in localStorage
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('taskflow_theme');
-    return (saved === 'dark' || saved === 'light') ? saved : 'light';
+    return saved === 'dark' || saved === 'light' ? saved : 'light';
   });
 
-  // Sync to local storage
-  useEffect(() => {
-    localStorage.setItem('taskflow_users', JSON.stringify(users));
-  }, [users]);
+  // Core data – start empty, will be populated from backend
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [activities, setActivities] = useState<TaskActivity[]>([]);
 
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Persist theme & focused task ID to localStorage (UI prefs only)
   useEffect(() => {
-    localStorage.setItem('taskflow_theme', theme);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    localStorage.setItem('taskflow_theme', theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('taskflow_current_user_id', currentUser.id);
-    } else {
-      localStorage.removeItem('taskflow_current_user_id');
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('taskflow_projects', JSON.stringify(projects));
-  }, [projects]);
-
-  useEffect(() => {
-    localStorage.setItem('taskflow_tasks', JSON.stringify(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    localStorage.setItem('taskflow_comments', JSON.stringify(comments));
-  }, [comments]);
-
-  useEffect(() => {
-    localStorage.setItem('taskflow_activities', JSON.stringify(activities));
-  }, [activities]);
 
   useEffect(() => {
     if (focusedTaskId) {
@@ -148,176 +84,149 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [focusedTaskId]);
 
+  // Initial data load – runs once on mount
+  useEffect(() => {
+    const token = localStorage.getItem('taskflow_token');
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const [me, usersData, projectsData, tasksData, commentsData, activitiesData] = await Promise.all([
+          api.me(),
+          api.users(),
+          api.projects(),
+          api.tasks(),
+          api.comments(), // helper that fetches all comments
+          api.activities(), // helper that fetches all activities
+        ]);
+        setCurrentUser(me);
+        setUsers(usersData);
+        setProjects(projectsData);
+        setTasks(tasksData);
+        setComments(commentsData);
+        setActivities(activitiesData);
+      } catch (e) {
+        clearToken();
+        addToast((e as Error).message, 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
   // Toast helpers
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4000);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), 4000);
   };
-
   const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Sign in
-  const signIn = (email: string) => {
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (user) {
+  // Helper to clear JWT token from storage
+  const clearToken = () => {
+    localStorage.removeItem('taskflow_token');
+    setCurrentUser(null);
+  };
+
+  // Authentication ----------------------------------------------------------
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { token, user } = await api.login(email, password);
+      localStorage.setItem('taskflow_token', token);
       setCurrentUser(user);
       addToast(`Welcome back, ${user.name}!`, 'success');
+      // Pre‑load supporting data after sign‑in
+      const [usersData, projectsData, tasksData, commentsData, activitiesData] = await Promise.all([
+        api.users(),
+        api.projects(),
+        api.tasks(),
+        api.comments(),
+        api.activities(),
+      ]);
+      setUsers(usersData);
+      setProjects(projectsData);
+      setTasks(tasksData);
+      setComments(commentsData);
+      setActivities(activitiesData);
       return true;
-    }
-    addToast('User not found. Try anira@taskflow.app or create an account.', 'error');
-    return false;
-  };
-
-  // Sign up
-  const signUp = (name: string, email: string) => {
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      addToast('An account with this email already exists.', 'error');
+    } catch (e) {
+      addToast((e as Error).message, 'error');
       return false;
     }
-
-    const initials = name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2) || 'US';
-
-    const newUser: User = {
-      id: 'u_' + Math.random().toString(36).substring(2, 9),
-      name,
-      email,
-      avatarUrl: null,
-      initials,
-    };
-
-    setUsers((prev) => [...prev, newUser]);
-    setCurrentUser(newUser);
-    addToast(`Account created successfully! Welcome, ${name}!`, 'success');
-    return true;
   };
 
-  // Sign out
+  const signUp = async (name: string, email: string, password: string) => {
+    try {
+      const { token, user } = await api.signup(name, email, password);
+      localStorage.setItem('taskflow_token', token);
+      setCurrentUser(user);
+      addToast(`Account created! Welcome, ${name}.`, 'success');
+      // Load initial data for the new user
+      const [usersData, projectsData, tasksData, commentsData, activitiesData] = await Promise.all([
+        api.users(),
+        api.projects(),
+        api.tasks(),
+        api.comments(),
+        api.activities(),
+      ]);
+      setUsers(usersData);
+      setProjects(projectsData);
+      setTasks(tasksData);
+      setComments(commentsData);
+      setActivities(activitiesData);
+      return true;
+    } catch (e) {
+      addToast((e as Error).message, 'error');
+      return false;
+    }
+  };
+
   const signOut = () => {
-    setCurrentUser(null);
+    clearToken();
     addToast('You have signed out.', 'success');
   };
 
-  // Create Project
-  const createProject = (name: string, description: string, color: string, memberIds: string[]) => {
-    const newProject: Project = {
-      id: 'p_' + Math.random().toString(36).substring(2, 9),
-      name,
-      description,
-      color,
-      memberIds: memberIds.length > 0 ? memberIds : ['u1'],
-      createdAt: new Date().toISOString(),
-    };
-    setProjects((prev) => [...prev, newProject]);
-    addToast(`Project "${name}" created successfully.`, 'success');
-    return newProject;
+  // Project CRUD -----------------------------------------------------------
+  const createProject = async (name: string, description: string, color: string, memberIds: string[]) => {
+    const proj = await api.createProject({ name, description, color, memberIds });
+    setProjects(prev => [...prev, proj]);
+    addToast(`Project "${name}" created.`, 'success');
+    return proj;
   };
 
-  // Log Task Actions helper
-  const logActivity = (
-    taskId: string,
-    actionType: TaskActivity['actionType'],
-    oldValue: string | null,
-    newValue: string | null
-  ) => {
-    const activeUser = currentUser || { id: 'u1', name: 'Anira Wong', initials: 'AW' };
-    const newActivity: TaskActivity = {
-      id: 'act_' + Math.random().toString(36).substring(2, 9),
-      taskId,
-      userId: activeUser.id,
-      userName: activeUser.name,
-      userInitials: activeUser.initials,
-      actionType,
-      oldValue,
-      newValue,
-      createdAt: new Date().toISOString(),
-    };
-    setActivities((prev) => [newActivity, ...prev]);
+  // Task CRUD ---------------------------------------------------------------
+  const createTask = async (taskData: Omit<Task, 'id' | 'commentCount' | 'createdAt' | 'updatedAt'>) => {
+    const task = await api.createTask(taskData);
+    setTasks(prev => [...prev, task]);
+    addToast(`Task "${task.title}" created.`, 'success');
+    return task;
   };
 
-  // Create Task
-  const createTask = (taskData: Omit<Task, 'id' | 'commentCount' | 'createdAt' | 'updatedAt'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: 't_' + Math.random().toString(36).substring(2, 9),
-      commentCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setTasks((prev) => [...prev, newTask]);
-    addToast(`Task "${newTask.title}" created.`, 'success');
-    
-    // Log creation
-    logActivity(newTask.id, 'creation', null, newTask.title);
-    if (newTask.assigneeId) {
-      logActivity(newTask.id, 'assignment_change', null, newTask.assigneeId);
-    }
-    
-    return newTask;
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    await api.updateTask(taskId, updates);
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
+    addToast('Task updated.', 'success');
   };
 
-  // Update Task
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    const existingTask = tasks.find((t) => t.id === taskId);
-    if (existingTask) {
-      if (updates.status !== undefined && updates.status !== existingTask.status) {
-        logActivity(taskId, 'status_change', existingTask.status, updates.status);
-      }
-      if (updates.priority !== undefined && updates.priority !== existingTask.priority) {
-        logActivity(taskId, 'priority_change', existingTask.priority, updates.priority);
-      }
-      if (updates.assigneeId !== undefined && updates.assigneeId !== existingTask.assigneeId) {
-        logActivity(taskId, 'assignment_change', existingTask.assigneeId, updates.assigneeId);
-      }
-      if (updates.dueDate !== undefined && updates.dueDate !== existingTask.dueDate) {
-        logActivity(taskId, 'due_date_change', existingTask.dueDate, updates.dueDate || null);
-      }
-    }
-
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId
-          ? { ...t, ...updates, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
-    addToast(`Task updated successfully.`, 'success');
+  const deleteTask = async (taskId: string) => {
+    await api.deleteTask(taskId);
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setComments(prev => prev.filter(c => c.taskId !== taskId));
+    setActivities(prev => prev.filter(a => a.taskId !== taskId));
+    addToast('Task deleted.', 'success');
   };
 
-  // Delete Task
-  const deleteTask = (taskId: string) => {
-    const taskToDelete = tasks.find((t) => t.id === taskId);
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    setComments((prev) => prev.filter((c) => c.taskId !== taskId));
-    setActivities((prev) => prev.filter((act) => act.taskId !== taskId));
-    addToast(`Task "${taskToDelete?.title || ''}" deleted.`, 'success');
-  };
-
-  // Move Task (Drag-and-Drop)
-  const moveTask = (taskId: string, status: Status): boolean => {
+  const moveTask = async (taskId: string, status: Status) => {
     try {
-      const existingTask = tasks.find((t) => t.id === taskId);
-      if (existingTask && existingTask.status !== status) {
-        logActivity(taskId, 'status_change', existingTask.status, status);
-      }
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? { ...t, status, updatedAt: new Date().toISOString() }
-            : t
-        )
+      await api.updateTask(taskId, { status });
+      setTasks(prev =>
+        prev.map(t => (t.id === taskId ? { ...t, status, updatedAt: new Date().toISOString() } : t))
       );
-      const niceStatus = status.replace('_', ' ').toUpperCase();
-      addToast(`Moved task to ${niceStatus}.`, 'success');
+      addToast(`Moved task to ${status.replace('_', ' ')}`, 'success');
       return true;
     } catch {
       addToast('Failed to move task.', 'error');
@@ -325,35 +234,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Add Comment
-  const addComment = (taskId: string, body: string) => {
+  // Comments ----------------------------------------------------------------
+  const addComment = async (taskId: string, body: string) => {
     if (!body.trim()) return false;
     if (!currentUser) {
       addToast('You must be signed in to comment.', 'error');
       return false;
     }
-
-    const newComment: Comment = {
-      id: 'c_' + Math.random().toString(36).substring(2, 9),
-      taskId,
-      authorId: currentUser.id,
-      body,
-      createdAt: new Date().toISOString(),
-    };
-
-    setComments((prev) => [...prev, newComment]);
-
-    // Update denormalized comment count on task
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId
-          ? { ...t, commentCount: t.commentCount + 1, updatedAt: new Date().toISOString() }
-          : t
-      )
+    const comment = await api.addComment(taskId, body);
+    setComments(prev => [...prev, comment]);
+    setTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, commentCount: t.commentCount + 1, updatedAt: new Date().toISOString() } : t))
     );
-
     addToast('Comment added.', 'success');
     return true;
+  };
+
+  // Activity logging – just mirrors backend activity list (no client‑side log)
+  const logActivity = (taskId: string, actionType: TaskActivity['actionType'], oldValue: string | null, newValue: string | null) => {
+    // No‑op on client side; backend creates activities automatically.
   };
 
   return (
@@ -364,8 +263,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         projects,
         tasks,
         comments,
+        activities,
         searchQuery,
         toasts,
+        isLoading,
         setSearchQuery,
         signIn,
         signUp,
@@ -380,8 +281,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeToast,
         theme,
         setTheme,
-        activities,
-        logActivity,
         focusedTaskId,
         setFocusedTaskId,
       }}
@@ -393,7 +292,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;

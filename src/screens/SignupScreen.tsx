@@ -41,7 +41,7 @@ export default function SignupScreen() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const success = signUp(name.trim(), email.trim());
+      const success = signUp(name.trim(), email.trim(), password.trim());
       setIsLoading(false);
       if (success) {
         navigate('/');
