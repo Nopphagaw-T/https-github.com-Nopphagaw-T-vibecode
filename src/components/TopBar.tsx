@@ -159,9 +159,13 @@ export default function TopBar({ onMenuToggle, onAddTaskClick }: TopBarProps) {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs select-none shadow-sm">
-              {currentUser?.initials || 'AW'}
-            </div>
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs select-none shadow-sm">
+                {currentUser?.initials || '??'}
+              </div>
+            )}
           </button>
 
           {dropdownOpen && (
