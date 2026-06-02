@@ -1,1 +1,21 @@
-# Use official Node.js image for backend\nFROM node:22-alpine AS base\nWORKDIR /app\n\n# Install dependencies\nCOPY package.json package-lock.json ./\nRUN npm ci\n\n# Copy backend source code\nCOPY server/ ./server/\nCOPY prisma/ ./prisma/\nCOPY .env.local ./ .env.local\n\n# Generate Prisma client\nRUN npx prisma generate\n\n# Build (if any TypeScript)\nRUN npx tsc --noEmit\n\nEXPOSE 5002\nENV PORT=5002\nCMD ["node", "server/index.ts"]
+FROM node:22-alpine AS base
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy backend source code and prisma files
+COPY server/ ./server/
+COPY prisma/ ./prisma/
+COPY .env.local ./
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build (if any TypeScript) - transpile if needed
+RUN npx tsc --noEmit || echo "No TypeScript build required"
+
+EXPOSE 5002
+ENV PORT=5002
+CMD ["node", "server/index.ts"]

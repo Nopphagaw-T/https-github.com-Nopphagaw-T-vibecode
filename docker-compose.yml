@@ -1,0 +1,34 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: vibecode_backend
+    environment:
+      - PORT=5002
+    volumes:
+      - .:/app
+    ports:
+      - "5002:5002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/api/auth/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: vibecode_frontend
+    environment:
+      - VITE_BACKEND_URL=http://host.docker.internal:5002
+      - PORT=3001
+    volumes:
+      - .:/app
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_healthy
