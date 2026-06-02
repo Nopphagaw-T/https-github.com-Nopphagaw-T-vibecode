@@ -45,3 +45,15 @@ export interface Comment {
   body: string;
   createdAt: string;
 }
+
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  userInitials: string;
+  actionType: 'status_change' | 'assignment_change' | 'priority_change' | 'due_date_change' | 'creation';
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
+}

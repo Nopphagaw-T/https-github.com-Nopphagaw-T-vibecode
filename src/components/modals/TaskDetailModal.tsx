@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Calendar, User, Tag, Trash2, Edit3, MessageSquare, AlertTriangle, Send } from 'lucide-react';
+import { X, Calendar, User, Tag, Trash2, Edit3, MessageSquare, AlertTriangle, Send, History, Star, Target } from 'lucide-react';
 import { Status, Priority, Task } from '../../types';
 
 interface TaskDetailModalProps {
@@ -26,6 +26,9 @@ export default function TaskDetailModal({ isOpen, taskId, onClose, onEditClick }
     deleteTask,
     addComment,
     addToast,
+    activities,
+    focusedTaskId,
+    setFocusedTaskId,
   } = useApp();
 
   const [newCommentBody, setNewCommentBody] = useState('');
@@ -109,6 +112,78 @@ export default function TaskDetailModal({ isOpen, taskId, onClose, onEditClick }
     }
   };
 
+  // Filter and sort activities for the active task
+  const taskActivities = (activities || [])
+    .filter((act) => act.taskId === task.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // Render a human-friendly description for any log entry
+  const renderActivityMessage = (act: any) => {
+    const statusLabel = (s: string) => {
+      const names: Record<string, string> = {
+        todo: 'To Do',
+        in_progress: 'In Progress',
+        in_review: 'In Review',
+        done: 'Done'
+      };
+      return names[s] || s;
+    };
+    
+    switch (act.actionType) {
+      case 'creation':
+        return (
+          <span>
+            created this task
+          </span>
+        );
+      case 'status_change':
+        return (
+          <span>
+            changed status from <span className="line-through text-slate-400 dark:text-slate-500">{statusLabel(act.oldValue || '')}</span> to <span className="font-semibold text-blue-600 dark:text-blue-400">{statusLabel(act.newValue || '')}</span>
+          </span>
+        );
+      case 'assignment_change': {
+        const oldUser = users.find(u => u.id === act.oldValue);
+        const newUser = users.find(u => u.id === act.newValue);
+        if (!act.oldValue && act.newValue) {
+          return (
+            <span>
+              assigned this task to <span className="font-semibold text-slate-700 dark:text-slate-300">{newUser?.name || 'someone'}</span>
+            </span>
+          );
+        } else if (act.oldValue && !act.newValue) {
+          return (
+            <span>
+              removed assignee (previously <span className="text-slate-500 dark:text-slate-400">{oldUser?.name}</span>)
+            </span>
+          );
+        } else {
+          return (
+            <span>
+              reassigned from <span className="text-slate-500 dark:text-slate-400">{oldUser?.name || 'Unassigned'}</span> to <span className="font-semibold text-slate-700 dark:text-slate-300">{newUser?.name}</span>
+            </span>
+          );
+        }
+      }
+      case 'priority_change':
+        return (
+          <span>
+            updated priority from <span className="capitalize text-slate-500 dark:text-slate-400">{act.oldValue}</span> to <span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{act.newValue}</span>
+          </span>
+        );
+      case 'due_date_change': {
+        const formatD = (d: string | null) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'None';
+        return (
+          <span>
+            changed due date from <span className="text-slate-400 dark:text-slate-500">{formatD(act.oldValue)}</span> to <span className="font-medium text-slate-700 dark:text-slate-300">{formatD(act.newValue)}</span>
+          </span>
+        );
+      }
+      default:
+        return <span>performed an action</span>;
+    }
+  };
+
   return (
     <div id="task-detail-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop overlay */}
@@ -132,6 +207,28 @@ export default function TaskDetailModal({ isOpen, taskId, onClose, onEditClick }
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Focus / Highlight toggle */}
+            <button
+              onClick={() => {
+                const newFocused = focusedTaskId === task.id ? null : task.id;
+                setFocusedTaskId(newFocused);
+                if (newFocused) {
+                  addToast(`"${task.title}" is now set as your active Focus!`, 'success');
+                } else {
+                  addToast('Focus cleared.', 'success');
+                }
+              }}
+              className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                focusedTaskId === task.id
+                  ? 'bg-amber-50 dark:bg-amber-950/25 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 font-bold shadow-xs'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              title="Set as your active high-priority task focus"
+            >
+              <Target className={`w-4 h-4 ${focusedTaskId === task.id ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`} />
+              <span>{focusedTaskId === task.id ? 'Focused Active' : 'Set Focus'}</span>
+            </button>
+
             {/* Edit */}
             <button
               onClick={() => onEditClick(task)}
@@ -276,6 +373,54 @@ export default function TaskDetailModal({ isOpen, taskId, onClose, onEditClick }
                   <span className="text-xs text-slate-400 italic">No labels assigned</span>
                 )}
               </div>
+            </div>
+
+            {/* Task Activity Log */}
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-4">
+                <History className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> Task Activity Log
+              </span>
+              {taskActivities.length > 0 ? (
+                <div className="relative pl-6 space-y-4 before:absolute before:top-2 before:bottom-2 before:left-2 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800/85">
+                  {taskActivities.map((act) => {
+                    const displayTime = new Date(act.createdAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                    
+                    return (
+                      <div key={act.id} className="relative flex gap-3 text-xs leading-normal">
+                        {/* Bullet circle */}
+                        <div className="absolute -left-[22px] top-1 w-2.5 h-2.5 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 flex items-center justify-center z-10 shrink-0">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+                        </div>
+                        
+                        {/* Avatar initials badge */}
+                        <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-500 dark:text-slate-450 shrink-0 select-none border border-slate-200 dark:border-slate-700">
+                          {act.userInitials}
+                        </div>
+                        
+                        {/* Text description */}
+                        <div className="flex-1 text-slate-600 dark:text-slate-400 font-sans">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 mr-1">{act.userName}</span>
+                          {renderActivityMessage(act)}
+                          <span className="block text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">{displayTime}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-dashed border-slate-150 dark:border-slate-800/50 rounded-2xl p-4 text-center">
+                  <History className="w-6 h-6 text-slate-300 dark:text-slate-700 mx-auto mb-1.5" />
+                  <p className="text-[11px] text-slate-450 dark:text-slate-550 font-medium">No activity logged yet.</p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 max-w-[220px] mx-auto mt-0.5 leading-normal">
+                    Real-time logs will automatically populate when task properties are updated.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

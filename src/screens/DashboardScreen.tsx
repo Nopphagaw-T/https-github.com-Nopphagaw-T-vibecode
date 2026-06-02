@@ -6,7 +6,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Calendar, AlertTriangle, CheckCircle2, Circle, Clock, ArrowRight, KanbanSquare, CheckSquare, ListTodo, Star } from 'lucide-react';
+import { Calendar, AlertTriangle, CheckCircle2, Circle, Clock, ArrowRight, KanbanSquare, CheckSquare, ListTodo, Star, Target, Check, Flame, X } from 'lucide-react';
 import AvatarGroup from '../components/AvatarGroup';
 import { Priority, Task } from '../types';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
@@ -16,7 +16,7 @@ interface DashboardScreenProps {
 }
 
 export default function DashboardScreen({ onTaskClick }: DashboardScreenProps) {
-  const { tasks, projects, users, currentUser, theme } = useApp();
+  const { tasks, projects, users, currentUser, theme, focusedTaskId, setFocusedTaskId, updateTask, addToast } = useApp();
   const navigate = useNavigate();
 
   // If no current user, default fallback (or login screen handled in App)
@@ -108,6 +108,9 @@ export default function DashboardScreen({ onTaskClick }: DashboardScreenProps) {
     { subject: 'Task Velocity', value: Math.max(20, complexityWeight), fullMark: 100 },
   ];
 
+  const focusedTask = tasks.find((t) => t.id === focusedTaskId);
+  const focusedTaskProject = focusedTask ? projects.find((p) => p.id === focusedTask.projectId) : null;
+
   return (
     <div id="dashboard-screen" className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto font-sans">
       {/* Welcome Banner */}
@@ -127,6 +130,114 @@ export default function DashboardScreen({ onTaskClick }: DashboardScreenProps) {
           <span>View all projects</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
+      </div>
+
+      {/* ACTIVE FOCUS WORKSPACE WIDGET */}
+      <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/5 dark:from-amber-950/20 dark:to-orange-950/10 border border-amber-500/20 dark:border-amber-500/30 rounded-3xl p-5 shadow-xs relative overflow-hidden">
+        {/* Ambient background decoration */}
+        <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-amber-500 dark:bg-amber-600 text-white rounded-2xl shrink-0 shadow-lg shadow-amber-500/20 animate-pulse">
+              <Target className="w-6 h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <Flame className="w-3 h-3 text-orange-500 fill-orange-500" /> Active Focus Workspace
+              </span>
+              {focusedTask && focusedTask.status !== 'done' ? (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
+                      {focusedTask.title}
+                    </h3>
+                    {focusedTaskProject && (
+                      <span
+                        className="text-[9px] font-bold uppercase tracking-wider text-white px-2 py-0.5 rounded-md"
+                        style={{ backgroundColor: focusedTaskProject.color }}
+                      >
+                        {focusedTaskProject.name}
+                      </span>
+                    )}
+                    <span className={`text-[9px] border px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${getPriorityBadgeAndStyle(focusedTask.priority)}`}>
+                      {focusedTask.priority}
+                    </span>
+                  </div>
+                  {focusedTask.description ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 max-w-2xl leading-relaxed">
+                      {focusedTask.description}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">
+                      No description provided.
+                    </p>
+                  )}
+                </>
+              ) : focusedTask && focusedTask.status === 'done' ? (
+                <>
+                  <h3 className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 tracking-tight leading-snug mt-1 flex items-center gap-1.5">
+                    🎉 Task Completed! Excellent work!
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    You've crushed your target goal. Ready for your next challenge? Focus space is now cleared for new selections.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 tracking-tight leading-snug mt-1.5">
+                    No active focus target selected today
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-xl">
+                    Highlight an important task to focus your progress. Open any task in your project boards and click the <strong className="text-amber-600 dark:text-amber-400 font-bold">🎯 Set Focus</strong> button to see it pinned here.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 shrink-0 self-start sm:self-center md:self-auto pl-14 md:pl-0">
+            {focusedTask && focusedTask.status !== 'done' ? (
+              <>
+                <button
+                  onClick={() => {
+                    updateTask(focusedTask.id, { status: 'done' });
+                    setFocusedTaskId(null);
+                    addToast(`Completed "${focusedTask.title}"! Celebration incoming! 🎯🎉`, 'success');
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-md shadow-emerald-500/10 border border-emerald-500/20 hover:scale-102 cursor-pointer transition-all active:scale-97"
+                >
+                  <Check className="w-4 h-4" style={{ strokeWidth: 2.5 }} />
+                  <span>Mark Completed</span>
+                </button>
+                <button
+                  onClick={() => onTaskClick(focusedTask.id)}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl px-4 py-2.5 flex items-center gap-2 hover:scale-102 cursor-pointer transition-all active:scale-97"
+                >
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                  <span>View Details</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setFocusedTaskId(null);
+                    addToast('Focus cleared.', 'success');
+                  }}
+                  className="text-slate-400 hover:text-rose-500 p-2.5 rounded-xl transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
+                  title="Remove focus target"
+                >
+                  <X className="w-4.5 h-4.5" />
+                </button>
+              </>
+            ) : focusedTask && focusedTask.status === 'done' ? (
+              <button
+                onClick={() => setFocusedTaskId(null)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-4 py-2.5 flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                <span>Clear Status</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {/* Summary strip counts */}
@@ -359,10 +470,16 @@ export default function DashboardScreen({ onTaskClick }: DashboardScreenProps) {
                   <div
                     key={task.id}
                     onClick={() => onTaskClick(task.id)}
-                    className="group bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-slate-205 dark:hover:border-slate-700 hover:shadow-xs rounded-xl p-4 transition-all duration-150 cursor-pointer flex items-start gap-3.5"
+                    className={`group border hover:border-slate-205 dark:hover:border-slate-700 hover:shadow-xs rounded-xl p-4 transition-all duration-150 cursor-pointer flex items-start gap-3.5 ${
+                      task.id === focusedTaskId
+                        ? 'bg-amber-500/5 border-amber-400 dark:border-amber-500 ring-1 ring-amber-400/40 dark:ring-amber-500/40 shadow-xs'
+                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                    }`}
                   >
                     {/* Status circle check indicator */}
-                    <div className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors">
+                    <div className={`mt-0.5 shrink-0 transition-colors ${
+                      task.id === focusedTaskId ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 group-hover:text-blue-500'
+                    }`}>
                       <Circle className="w-4.5 h-4.5" />
                     </div>
 
@@ -380,6 +497,11 @@ export default function DashboardScreen({ onTaskClick }: DashboardScreenProps) {
                         <span className={`text-xs border px-2 py-0.2 rounded-full font-semibold uppercase tracking-wider ${getPriorityBadgeAndStyle(task.priority)}`}>
                           {task.priority}
                         </span>
+                        {task.id === focusedTaskId && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-md flex items-center gap-0.5 shadow-xs animate-pulse">
+                            <Target className="w-2.5 h-2.5" /> Active Focus
+                          </span>
+                        )}
                       </div>
                       <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mt-1.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                         {task.title}

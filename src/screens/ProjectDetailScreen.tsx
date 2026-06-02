@@ -21,7 +21,8 @@ import {
   Filter,
   ArrowLeft,
   Settings,
-  CircleDot
+  CircleDot,
+  Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -39,7 +40,7 @@ const COLUMNS: { status: Status; label: string; color: string }[] = [
 
 export default function ProjectDetailScreen({ onAddTaskClick, onTaskClick }: ProjectDetailScreenProps) {
   const { projectId } = useParams<{ projectId: string }>();
-  const { projects, tasks, users, moveTask, updateTask } = useApp();
+  const { projects, tasks, users, moveTask, updateTask, focusedTaskId } = useApp();
 
   const [activeTab, setActiveTab] = useState<'board' | 'list'>('board');
   const [localSearch, setLocalSearch] = useState('');
@@ -360,7 +361,11 @@ export default function ProjectDetailScreen({ onAddTaskClick, onTaskClick }: Pro
                                   draggable
                                   onDragStart={(e) => handleDragStart(e, task.id)}
                                   onClick={() => onTaskClick(task.id)}
-                                  className="group bg-white rounded-xl border border-slate-100 hover:border-slate-200 shadow-2xs hover:shadow-sm p-4 transition-all duration-150 cursor-grab active:cursor-grabbing text-left"
+                                  className={`group rounded-xl border p-4 transition-all duration-150 cursor-grab active:cursor-grabbing text-left ${
+                                    task.id === focusedTaskId
+                                      ? 'bg-amber-500/5 border-amber-400 dark:border-amber-500 ring-1 ring-amber-400/40 dark:ring-amber-500/40 shadow-xs'
+                                      : 'bg-white border-slate-100 dark:border-slate-800 hover:border-slate-200 shadow-2xs hover:shadow-sm'
+                                  }`}
                                 >
                                   {/* Badges strip */}
                                   <div className="flex flex-wrap gap-1 items-center pb-2.5">
@@ -375,6 +380,11 @@ export default function ProjectDetailScreen({ onAddTaskClick, onTaskClick }: Pro
                                         {lbl}
                                       </span>
                                     ))}
+                                    {task.id === focusedTaskId && (
+                                      <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-md flex items-center gap-0.5 shadow-xs animate-pulse">
+                                        <Target className="w-2.5 h-2.5" /> Active Focus
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Title & description */}
@@ -505,12 +515,19 @@ export default function ProjectDetailScreen({ onAddTaskClick, onTaskClick }: Pro
                         return (
                           <tr
                             key={task.id}
-                            className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                            className={`transition-colors cursor-pointer group ${
+                              task.id === focusedTaskId
+                                ? 'bg-amber-500/5 hover:bg-amber-500/10 border-l-2 border-amber-500'
+                                : 'hover:bg-slate-50/50'
+                            }`}
                           >
                             {/* Title */}
                             <td onClick={() => onTaskClick(task.id)} className="px-6 py-3.5 min-w-[220px]">
                               <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">
+                                <span className={`text-sm font-semibold group-hover:text-blue-600 transition-colors leading-tight flex items-center gap-1.5 ${
+                                  task.id === focusedTaskId ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-slate-800'
+                                }`}>
+                                  {task.id === focusedTaskId && <Target className="w-3.5 h-3.5 text-amber-500 animate-pulse shrink-0" />}
                                   {task.title}
                                 </span>
                                 {task.labels.length > 0 && (

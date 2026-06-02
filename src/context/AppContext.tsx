@@ -4,13 +4,14 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Project, Task, Comment, Status, Priority } from '../types';
+import { User, Project, Task, Comment, Status, Priority, TaskActivity } from '../types';
 import {
   INITIAL_USERS,
   INITIAL_CURRENT_USER_ID,
   INITIAL_PROJECTS,
   INITIAL_TASKS,
   INITIAL_COMMENTS,
+  INITIAL_ACTIVITIES,
 } from '../data/mockData';
 
 interface Toast {
@@ -41,6 +42,10 @@ interface AppContextType {
   removeToast: (id: string) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  activities: TaskActivity[];
+  logActivity: (taskId: string, actionType: TaskActivity['actionType'], oldValue: string | null, newValue: string | null) => void;
+  focusedTaskId: string | null;
+  setFocusedTaskId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -78,6 +83,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [comments, setComments] = useState<Comment[]>(() => {
     const saved = localStorage.getItem('taskflow_comments');
     return saved ? JSON.parse(saved) : INITIAL_COMMENTS;
+  });
+
+  const [activities, setActivities] = useState<TaskActivity[]>(() => {
+    const saved = localStorage.getItem('taskflow_activities');
+    return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
+  });
+
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(() => {
+    return localStorage.getItem('taskflow_focused_task_id');
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,6 +135,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('taskflow_comments', JSON.stringify(comments));
   }, [comments]);
+
+  useEffect(() => {
+    localStorage.setItem('taskflow_activities', JSON.stringify(activities));
+  }, [activities]);
+
+  useEffect(() => {
+    if (focusedTaskId) {
+      localStorage.setItem('taskflow_focused_task_id', focusedTaskId);
+    } else {
+      localStorage.removeItem('taskflow_focused_task_id');
+    }
+  }, [focusedTaskId]);
 
   // Toast helpers
   const addToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -196,6 +222,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return newProject;
   };
 
+  // Log Task Actions helper
+  const logActivity = (
+    taskId: string,
+    actionType: TaskActivity['actionType'],
+    oldValue: string | null,
+    newValue: string | null
+  ) => {
+    const activeUser = currentUser || { id: 'u1', name: 'Anira Wong', initials: 'AW' };
+    const newActivity: TaskActivity = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      taskId,
+      userId: activeUser.id,
+      userName: activeUser.name,
+      userInitials: activeUser.initials,
+      actionType,
+      oldValue,
+      newValue,
+      createdAt: new Date().toISOString(),
+    };
+    setActivities((prev) => [newActivity, ...prev]);
+  };
+
   // Create Task
   const createTask = (taskData: Omit<Task, 'id' | 'commentCount' | 'createdAt' | 'updatedAt'>) => {
     const newTask: Task = {
@@ -207,11 +255,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     setTasks((prev) => [...prev, newTask]);
     addToast(`Task "${newTask.title}" created.`, 'success');
+    
+    // Log creation
+    logActivity(newTask.id, 'creation', null, newTask.title);
+    if (newTask.assigneeId) {
+      logActivity(newTask.id, 'assignment_change', null, newTask.assigneeId);
+    }
+    
     return newTask;
   };
 
   // Update Task
   const updateTask = (taskId: string, updates: Partial<Task>) => {
+    const existingTask = tasks.find((t) => t.id === taskId);
+    if (existingTask) {
+      if (updates.status !== undefined && updates.status !== existingTask.status) {
+        logActivity(taskId, 'status_change', existingTask.status, updates.status);
+      }
+      if (updates.priority !== undefined && updates.priority !== existingTask.priority) {
+        logActivity(taskId, 'priority_change', existingTask.priority, updates.priority);
+      }
+      if (updates.assigneeId !== undefined && updates.assigneeId !== existingTask.assigneeId) {
+        logActivity(taskId, 'assignment_change', existingTask.assigneeId, updates.assigneeId);
+      }
+      if (updates.dueDate !== undefined && updates.dueDate !== existingTask.dueDate) {
+        logActivity(taskId, 'due_date_change', existingTask.dueDate, updates.dueDate || null);
+      }
+    }
+
     setTasks((prev) =>
       prev.map((t) =>
         t.id === taskId
@@ -227,12 +298,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const taskToDelete = tasks.find((t) => t.id === taskId);
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     setComments((prev) => prev.filter((c) => c.taskId !== taskId));
+    setActivities((prev) => prev.filter((act) => act.taskId !== taskId));
     addToast(`Task "${taskToDelete?.title || ''}" deleted.`, 'success');
   };
 
   // Move Task (Drag-and-Drop)
   const moveTask = (taskId: string, status: Status): boolean => {
     try {
+      const existingTask = tasks.find((t) => t.id === taskId);
+      if (existingTask && existingTask.status !== status) {
+        logActivity(taskId, 'status_change', existingTask.status, status);
+      }
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId
@@ -240,7 +316,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : t
         )
       );
-      const updatedTask = tasks.find(t => t.id === taskId);
       const niceStatus = status.replace('_', ' ').toUpperCase();
       addToast(`Moved task to ${niceStatus}.`, 'success');
       return true;
@@ -305,6 +380,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeToast,
         theme,
         setTheme,
+        activities,
+        logActivity,
+        focusedTaskId,
+        setFocusedTaskId,
       }}
     >
       {children}

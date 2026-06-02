@@ -187,3 +187,117 @@ export const INITIAL_COMMENTS: Comment[] = [
     createdAt: '2026-06-02T07:30:00Z'
   }
 ];
+
+export const INITIAL_ACTIVITIES = [
+  {
+    id: 'act1',
+    taskId: 't1',
+    userId: 'u1',
+    userName: 'Anira Wong',
+    userInitials: 'AW',
+    actionType: 'creation',
+    oldValue: null,
+    newValue: 'Design new homepage hero',
+    createdAt: '2026-05-22T10:00:00Z'
+  },
+  {
+    id: 'act2',
+    taskId: 't1',
+    userId: 'u1',
+    userName: 'Anira Wong',
+    userInitials: 'AW',
+    actionType: 'assignment_change',
+    oldValue: null,
+    newValue: 'u3', // Priya Nair
+    createdAt: '2026-05-22T10:05:00Z'
+  },
+  {
+    id: 'act3',
+    taskId: 't1',
+    userId: 'u3',
+    userName: 'Priya Nair',
+    userInitials: 'PN',
+    actionType: 'status_change',
+    oldValue: 'todo',
+    newValue: 'in_progress',
+    createdAt: '2026-06-01T16:20:00Z'
+  },
+  {
+    id: 'act4',
+    taskId: 't3',
+    userId: 'u1',
+    userName: 'Anira Wong',
+    userInitials: 'AW',
+    actionType: 'creation',
+    oldValue: null,
+    newValue: 'Write launch announcement copy',
+    createdAt: '2026-05-25T11:00:00Z'
+  },
+  {
+    id: 'act5',
+    taskId: 't3',
+    userId: 'u1',
+    userName: 'Anira Wong',
+    userInitials: 'AW',
+    actionType: 'assignment_change',
+    oldValue: null,
+    newValue: 'u1',
+    createdAt: '2026-05-25T11:00:00Z'
+  },
+  {
+    id: 'act6',
+    taskId: 't3',
+    userId: 'u1',
+    userName: 'Anira Wong',
+    userInitials: 'AW',
+    actionType: 'status_change',
+    oldValue: 'in_progress',
+    newValue: 'in_review',
+    createdAt: '2026-06-02T08:45:00Z'
+  },
+  {
+    id: 'act7',
+    taskId: 't4',
+    userId: 'u4',
+    userName: 'Tom Belanger',
+    userInitials: 'TB',
+    actionType: 'creation',
+    oldValue: null,
+    newValue: 'Set up navigation stack',
+    createdAt: '2026-05-10T14:00:00Z'
+  },
+  {
+    id: 'act8',
+    taskId: 't4',
+    userId: 'u4',
+    userName: 'Tom Belanger',
+    userInitials: 'TB',
+    actionType: 'status_change',
+    oldValue: 'in_progress',
+    newValue: 'done',
+    createdAt: '2026-05-28T17:10:00Z'
+  },
+  {
+    id: 'act9',
+    taskId: 't8',
+    userId: 'u2',
+    userName: 'Marcus Reed',
+    userInitials: 'MR',
+    actionType: 'creation',
+    oldValue: null,
+    newValue: 'Book ad placements',
+    createdAt: '2026-05-21T13:00:00Z'
+  },
+  {
+    id: 'act10',
+    taskId: 't8',
+    userId: 'u2',
+    userName: 'Marcus Reed',
+    userInitials: 'MR',
+    actionType: 'status_change',
+    oldValue: 'todo',
+    newValue: 'in_progress',
+    createdAt: '2026-06-02T07:30:00Z'
+  }
+];
+
