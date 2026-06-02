@@ -29,7 +29,7 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const success = signIn(email.trim());
+      const success = signIn(email.trim(), password.trim());
       setIsLoading(false);
       if (success) {
         navigate('/');
@@ -39,19 +39,17 @@ export default function LoginScreen() {
     }, 600);
   };
 
-  const selectPredefinedUser = (em: string) => {
+  const selectPredefinedUser = async (em: string) => {
     setEmail(em);
     setErrorText('');
     setIsLoading(true);
-    setTimeout(() => {
-      const success = signIn(em);
-      setIsLoading(false);
-      if (success) {
-        navigate('/');
-      } else {
-        setErrorText('Failed to sign in.');
-      }
-    }, 150);
+    const success = await signIn(em, password);
+    setIsLoading(false);
+    if (success) {
+      navigate('/');
+    } else {
+      setErrorText('Failed to sign in.');
+    }
   };
 
   return (

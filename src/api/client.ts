@@ -75,6 +75,18 @@ export const api = {
 
   // Users (team members)
   users: () => apiFetch<any[]>('/users'),
+  createUser: (name: string, email: string, password: string) =>
+    apiFetch<{ token: string; user: any }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    }),
+  getUser: (id: string) => apiFetch<any>(`/users/${id}`),
+  updateUser: (id: string, data: any) =>
+    apiFetch<any>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteUser: (id: string) => apiFetch<void>(`/users/${id}`, { method: 'DELETE' }),
 
   // Projects
   projects: () => apiFetch<any[]>('/projects'),

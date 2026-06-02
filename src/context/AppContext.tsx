@@ -159,6 +159,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Helper to refresh user list from backend
+  const refreshUsers = async () => {
+    try {
+      const usersData = await api.users();
+      setUsers(usersData);
+    } catch (e) {
+      addToast((e as Error).message, 'error');
+    }
+  };
+
+  // User CRUD ----------------------------------------------------------
+  const createUser = async (name: string, email: string, password: string) => {
+    try {
+      await api.createUser(name, email, password);
+      await refreshUsers();
+      addToast(`User ${name} created.`, 'success');
+      return true;
+    } catch (e) {
+      addToast((e as Error).message, 'error');
+      return false;
+    }
+  };
+
+  const updateUser = async (id: string, data: Partial<any>) => {
+    try {
+      await api.updateUser(id, data);
+      await refreshUsers();
+      addToast(`User updated.`, 'success');
+      return true;
+    } catch (e) {
+      addToast((e as Error).message, 'error');
+      return false;
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      await api.deleteUser(id);
+      await refreshUsers();
+      addToast('User deleted.', 'success');
+      return true;
+    } catch (e) {
+      addToast((e as Error).message, 'error');
+      return false;
+    }
+  };
+
   const signUp = async (name: string, email: string, password: string) => {
     try {
       const { token, user } = await api.signup(name, email, password);
@@ -260,6 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         currentUser,
         users,
+        refreshUsers,
         projects,
         tasks,
         comments,
@@ -296,4 +344,5 @@ export function useApp() {
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;
+}
 }
