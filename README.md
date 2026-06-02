@@ -169,5 +169,5 @@ Feel free to open issues or submit pull requests. Follow the existing code style
 
 ## Entity Relationship Diagram
 
-![ER Diagram](file:///C:/Users/HP/.gemini/antigravity-ide/brain/b3e619e3-274c-445b-bcb5-31e24b9d4abc/er_diagram_1780389436412.png)
+![ER Diagram](./docs/er_diagram.png)
 
