@@ -1,0 +1,6 @@
+{
+  "name": "TaskFlow",
+  "description": "A collaborative team task management application with Kanban boards, list views, personalized dashboards, settings, and task details.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
